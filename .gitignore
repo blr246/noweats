@@ -52,3 +52,8 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# Api keys
+twitter.conf
+
+# Vim
+.*.swp

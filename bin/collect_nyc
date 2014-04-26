@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+"""
+Collect data for NYC.
+"""
+from argparse import ArgumentParser, FileType
+import json
+import os
+
+from noweats.data_collection import ApiKeys, StreamFilterRunner
+
+
+def main():
+
+    bin_dir = os.path.dirname(os.path.abspath(__file__))
+    default_conf_dir = os.path.abspath(os.path.join(bin_dir, "../"))
+    default_conf_path = os.path.join(default_conf_dir, 'twitter.conf')
+    default_data_dir = os.path.join(default_conf_dir, 'data')
+
+    parser = ArgumentParser(description="Collect Twitter stream data for NYC.")
+
+    parser.add_argument('-a', '--auth', help="path to Twitter API keys",
+                        type=FileType('r'), default=default_conf_path)
+
+    parser.add_argument('-d', '--data-dir', help="path to output data dir",
+                        type=str, default=default_data_dir)
+
+    args = parser.parse_args()
+
+    apikeys = ApiKeys(json.load(args.auth))
+
+    # Run a stream collector.
+    track = ['ate', 'eating', 'eat']
+    location = [-74,40,-73,41]
+    output_prefix = '{}_nyc'.format('_'.join(track))
+    with StreamFilterRunner(apikeys, track, location, args.data_dir,
+                            output_prefix, ('H', 1)) as filter:
+        pass
+
+if __name__ == '__main__':
+    main()
