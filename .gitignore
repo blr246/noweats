@@ -55,5 +55,8 @@ docs/_build/
 # Api keys
 twitter.conf
 
+# Scraped data.
+data/*
+
 # Vim
 .*.swp
