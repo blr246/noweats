@@ -10,8 +10,10 @@ setup(name='NowEats',
       author_email='blr246@nyu.edu',
       url='https://github.com/blr246/noweats',
       packages=find_packages(),
-      install_requires=['tweepy'],
-      #scripts=[
-      #    'bin/collect_nyc',
-      #],
+      install_requires=['tweepy', 'numpy', 'nltk'],
+      scripts=[
+          'bin/collect_nyc',
+          'bin/process_file',
+          #'bin/recompress_data',
+      ],
       )
