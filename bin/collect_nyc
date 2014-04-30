@@ -2,11 +2,11 @@
 """
 Collect data for NYC.
 """
+from noweats.collection import ApiKeys, StreamFilterRunner
 from argparse import ArgumentParser, FileType
+
 import json
 import os
-
-from noweats.data_collection import ApiKeys, StreamFilterRunner
 
 
 def main():

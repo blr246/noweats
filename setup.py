@@ -1,6 +1,6 @@
 #!/usr/bin/env python
+""" Setup and install noweats.  """
 
-#from distutils.core import setup
 from setuptools import find_packages, setup
 
 setup(name='NowEats',
@@ -14,6 +14,6 @@ setup(name='NowEats',
       scripts=[
           'bin/collect_nyc',
           'bin/process_file',
-          #'bin/recompress_data',
+          'bin/recompress_data',
       ],
       )

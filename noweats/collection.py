@@ -1,15 +1,15 @@
 """
 Objects used to access Twitter streaming APIs.
 """
-import os
-import sys
 from copy import copy
-
 from logging.handlers import TimedRotatingFileHandler
 from logging import getLogger, LogRecord
 from tweepy.streaming import StreamListener
 from tweepy.error import TweepError
 from tweepy import Stream, OAuthHandler
+
+import os
+import sys
 
 _LOGGER = getLogger(__name__)
 
@@ -24,10 +24,10 @@ class ApiKeys(object):
 
     def __init__(self, keys):
 
-        if not self._KEYNAME_API_KEY in keys \
-                or not self._KEYNAME_API_SECRET in keys \
-                or not self._KEYNAME_ACCESS_TOKEN in keys \
-                or not self._KEYNAME_ACCESS_SECRET in keys:
+        if self._KEYNAME_API_KEY not in keys \
+                or self._KEYNAME_API_SECRET not in keys \
+                or self._KEYNAME_ACCESS_TOKEN not in keys \
+                or self._KEYNAME_ACCESS_SECRET not in keys:
             raise ValueError('Keys dict does not contain api key/secret '
                              'and access token/secret')
 
@@ -40,24 +40,29 @@ class ApiKeys(object):
 
     @property
     def auth(self):
+        """ Get OAuthHandler for API. """
         auth = OAuthHandler(self._api_key, self._api_secret)
         auth.set_access_token(self._access_token, self._access_secret)
         return auth
 
     @property
     def api_key(self):
+        """ Get the API key. """
         return copy(self._api_key)
 
     @property
     def api_secret(self):
+        """ Get the API secret. """
         return copy(self._api_secret)
 
     @property
     def access_token(self):
+        """ Get the access token. """
         return copy(self._access_token)
 
     @property
     def access_secret(self):
+        """ Get the access secret. """
         return copy(self._access_secret)
 
 
@@ -133,14 +138,16 @@ class StreamFilterRunner(object):
             self._listener = TimedRotatingStreamListener(runner.log_dir,
                                                          runner.prefix,
                                                          runner.when_interval)
-            self._stream = Stream(runner._api_keys.auth, self._listener)
+            self._stream = Stream(runner.auth, self._listener)
             self._track = runner.track
             self._locations = runner.locations
 
         def run(self):
+            """ Run the collector. """
             self._stream.filter(track=self._track, locations=self._locations)
 
         def close(self):
+            """ Close the collector. """
             self._stream.disconnect()
             self._listener.flush()
             self._listener.close()
@@ -163,35 +170,45 @@ class StreamFilterRunner(object):
         self._log_dir = log_dir
         self._prefix = prefix
         self._when_interval = when_interval
+        self._stream_filter = None
 
     def __enter__(self):
-        self._stream_filter = self._MyStreamFilter(self)
-        self._stream_filter.run()
+        if self._stream_filter is None:
+            self._stream_filter = self._MyStreamFilter(self)
+            self._stream_filter.run()
+        else:
+            raise ValueError("Cannot start again")
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, valtype, value, traceback):
         self._stream_filter.close()
         return False  # do not suppress exceptions
 
     @property
     def auth(self):
-        return self._auth
+        """ Get API auth. """
+        return self._api_keys.auth
 
     @property
     def track(self):
+        """ Get filter track. """
         return self._track
 
     @property
     def locations(self):
+        """ Get filter locations. """
         return self._locations
 
     @property
     def log_dir(self):
+        """ Get output directory. """
         return self._log_dir
 
     @property
     def prefix(self):
+        """ Get output prefix. """
         return self._prefix
 
     @property
     def when_interval(self):
+        """ Get output interval. """
         return self._when_interval
