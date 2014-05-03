@@ -4,13 +4,15 @@ Process Twitter stream files for food counts.
 """
 from argparse import ArgumentParser
 from noweats.extraction import filters_from_dict, read_json, \
-    pos_tag_clean_text_data, chunk_parse, count_foods
+    sentence_split_clean_data, tokenize_tweet, \
+    pos_tag_tweet, chunk_tweet, count_foods
 from noweats.analysis import merge_most_common_counts, find_interesting
 from multiprocessing import Pool
 
 import os
 import sys
 import json
+import pickle
 
 _EAT_LEXICON = ['eat', 'ate', 'eating']
 
@@ -18,41 +20,36 @@ _MERGE_TOP_K = 200
 
 _NUM_INTERESTING = 50
 
-def process_files(file_paths, output_dir, eat_lexicon, filters,
+def process_files(file_paths, output_dir,
+                  eat_lexicon, filters,
                   merge_top_k, num_interesting):
     """ Process data files. """
-
-    def chunks(listdata, size):
-        """
-        Yield successive n-sized chunks from l.
-
-        From http://stackoverflow.com/questions/312443/
-        how-do-you-split-a-list-into-evenly-sized-chunks-in-python
-        """
-        for i in xrange(0, len(listdata), size):
-            yield listdata[i:i + size]
 
     pool = Pool()
 
     for path in file_paths:
 
+        filename = os.path.basename(path)
         data_json = read_json(path)
+        tweets = sentence_split_clean_data(data_json, eat_lexicon)
+        tokenized = pool.map(tokenize_tweet, tweets, 2000)
 
         # Process in parallel. These parts be slow.
-        pos_tagged = [tagged for chunk in
-                      pool.map(pos_tag_clean_text_data,
-                               chunks(data_json, 1000))
-                      for tagged in chunk]
+        pos_tagged = pool.map(pos_tag_tweet, tokenized, 1000)
 
-        counts = count_foods(chunk_parse(pos_tagged), eat_lexicon, filters)
+        # Save POS tagged data in case we wish to resume.
+        tagged_path = os.path.join(output_dir,
+                                   '{}.tagged'.format(filename))
+        with open(tagged_path, 'w') as filep:
+            pickle.dump(pos_tagged, filep)
+
+        chunked = [chunk_tweet(tweet) for tweet in pos_tagged]
+        counts = count_foods(chunked, eat_lexicon, filters)
 
         merged_counts = merge_most_common_counts(counts, merge_top_k)
         interesting = find_interesting(counts, num_interesting)
 
         # Save counts and interesting to output directory.
-
-        filename = os.path.basename(path)
-
         counts_path = os.path.join(output_dir,
                                    '{}.counts'.format(filename))
         with open(counts_path, 'w') as filep:

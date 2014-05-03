@@ -14,30 +14,35 @@ import bz2
 
 _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
 
-_REMOVE_USER_HASH = '@[\\S]+\\s?|#[\\S]+'
+_REMOVE_USER_HASH = '^@[\\S]+\\s*|@\\b|#\\b'
 
 _REMOVE_MISSED_UNICODE = '\[\?\]'
 
-_SENTENCE_DELIMS = '\.\?\!;'
-
-_REMOVE_PUNCTUATION = '"'.format(_SENTENCE_DELIMS)
+_REMOVE_PUNCTUATION = '"'
 
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_USER_HASH,
                                    _REMOVE_MISSED_UNICODE,
                                    _REMOVE_PUNCTUATION)))
 
+_SENTENCE_DELIMS = '\.\?\!;\n'
+
 _RE_SENTENCE = re.compile(('\\s*[{}]{{2,}}\\s*'
                            '|\\b\\s*[{}]\\s*').format(_SENTENCE_DELIMS,
                                                       _SENTENCE_DELIMS))
 
+_FIX_WHITESPACE = re.compile('[\\s\\\/]+')
 _HTMLPARSER = HTMLParser()
 
 _RE_FOOD_POS = re.compile('^N.*|^JJ')
 
-_FILTER_NO_RETWEET = lambda data: 'retweeted_status' not in data
+_RE_TWEET_AND = re.compile('"lang"\\s*:\\s*"en"')
+_RE_TWEET_NOT = re.compile('"retweeted_status"\\s*:'
+                           '|"text"\\s*:\\s*"\\s*RT'
+                           '|"lang"\\s*:\\s*"(?!en)')
 
-_FILTER_EN = lambda data: '"lang":"en"' in data
+_FILTER_TWEET = lambda datas: _RE_TWEET_AND.search(datas) is not None \
+    and _RE_TWEET_NOT.search(datas) is None
 
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
 
@@ -51,36 +56,75 @@ def _build_noun_chunker():
     np_grammar = "NP: {}".format(np_chunk)
     return RegexpParser(np_grammar)
 
+_CHUNKER = _build_noun_chunker()
+
 
 def read_json(data_path):
     """ Read json tweet data ignoring retweets.  """
-    with bz2.BZ2File(data_path, 'rb') as data:
-        return [json.loads(line) for line in data
-                if _FILTER_NO_RETWEET(line) and _FILTER_EN(line)]
+    with bz2.BZ2File(data_path, 'rb') as data_file:
+        return [json.loads(line)
+                for line in data_file if _FILTER_TWEET(line)]
 
 
-def pos_tag_clean_text_data(data_json):
+def sentence_split_clean_data(data_json, eat_lexicon):
     """
-    Remove hyperlinks and unprintable tokens from tweets, then tokenize and POS
-    tag them.
+    Remove hyperlinks and unprintable tokens from tweets and split them into
+    sentences.
 
     :param list data_json: list of json source data
-    :return tuple: tuple of tuples of tokenized and POS tagged Tweets where
-    each inner tuple is a pos tagged sentence from the source Tweet
+    :param list eat_lexicon: list of eat words
+    :return list: list of tuples of sentences split from tweets where each
+    sentence contains at least one word from the eat lexicon
     """
+    eat_lexicon_re = re.compile('|'.join(eat_lexicon), re.IGNORECASE)
     return [
-        tuple(
-            pos_tag(word_tokenize(sentence))
-            for sentence in
-            it.imap(lambda s: s.strip(),
-                    _RE_SENTENCE.split(_RE_PREPROC.sub('', text)))
-            if len(sentence) > 0
-        )
-        for text in it.imap(_GET_TEXT, data_json)
+        sentences for sentences in
+        (tuple(_FIX_WHITESPACE.sub(' ', sentence) for sentence in
+               it.imap(lambda s: s.strip(),
+                       _RE_SENTENCE.split(_RE_PREPROC.sub('', text)))
+               if len(sentence) > 0
+               and eat_lexicon_re.search(sentence) is not None
+               )
+         for text in it.imap(_GET_TEXT, data_json)
+         )
+        if len(sentences) > 0
     ]
 
 
-def chunk_parse(pos_tagged_tweets):
+def score_tweet_en(tweet, en_model):
+    """ Score a tweet. """
+    scores = [s for s in it.imap(en_model, it.chain(*tweet)) if s is not None]
+    if len(scores) > 0:
+        return sum(scores) / float(len(scores))
+    else:
+        return 0
+
+
+def tokenize_tweet(tweet):
+    """ Tokenize a tweet. """
+    return tuple(word_tokenize(sentence) for sentence in tweet)
+
+
+def tokenize_keep_en_tweets(tweets, en_model, keep_pct=0.95):
+    """
+    Tokenize tweets split already into sentences.
+
+    Use the prefix-suffix model of english to rank tweets and then discard some
+    proportion.
+    """
+    by_score = sorted((tokenize_tweet(tweet) for tweet in tweets),
+                      key=lambda tweet: score_tweet_en(tweet, en_model),
+                      reverse=True)
+    to_keep = int(keep_pct * len(by_score))
+    return by_score[:to_keep]
+
+
+def pos_tag_tweet(tweet):
+    """ POS tag tweets split already into sentences. """
+    return tuple(pos_tag(sentence) for sentence in tweet)
+
+
+def chunk_tweet(pos_tagged_tweet):
     """
     Use a chunk parser to parse the output of pos_tag_clean_text_data().
 
@@ -89,11 +133,7 @@ def chunk_parse(pos_tagged_tweets):
 
     :return list: chunker parsed tweets in same nested structure as input
     """
-    chunker = _build_noun_chunker()
-    return tuple(
-        tuple(chunker.parse(sentence)
-              for sentence in tweet)
-        for tweet in pos_tagged_tweets)
+    return tuple(_CHUNKER.parse(sentence) for sentence in pos_tagged_tweet)
 
 
 _STATE_SCAN_EAT, \
@@ -151,7 +191,8 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
         elif state == _STATE_NP_FOUND:
 
             if isinstance(stree, tuple) \
-                    and stree[0].lower() in ['of', 'in']:
+                    and (stree[0].lower() in ['of', 'in', 'on', 'with']
+                         or stree[0].lower() in ['and']):
                 words.append(stree)
                 filtered_words.append(stree)
                 state = _STATE_IN_FOUND
@@ -218,3 +259,52 @@ def count_foods(chunked_tweets, eat_lexicon, filters, debug=False):
     if None in counts:
         del counts[None]
     return counts
+
+
+def make_en_prefix_suffix_model(model):
+    """ Create a function that scores English words. """
+
+    re_not_alpha, prefixes, suffixes, p_default = model
+
+    def p_word(word):
+        """ Compute probability of a word under the model. """
+
+        if len(word) < 3 or re_not_alpha.match(word) is not None:
+            return None
+
+        prefix, suffix = word[:3].lower(), word[-3:].lower()
+
+        p_prefix = prefixes[prefix] if prefix in prefixes else p_default
+        p_suffix = suffixes[suffix] if suffix in suffixes else p_default
+        return p_prefix * p_suffix
+
+    return p_word
+
+
+def build_en_prefix_suffix_model(data_json):
+    """ Create a probabilisitc model of English words from data. """
+
+    re_not_alpha = re.compile('^[^a-zA-Z]+$')
+    all_tweets = sentence_split_clean_data(data_json, ['.'])
+    toks = [t for tw in all_tweets
+            for s in tw
+            for t in word_tokenize(s)]
+    prefixes = Counter(t[:3].lower() for t in toks
+                       if len(t) > 2 and re_not_alpha.match(t) is None)
+    suffixes = Counter(t[-3:].lower() for t in toks
+                       if len(t) > 2 and re_not_alpha.match(t) is None)
+    # There are 26 alpha characters, 1 apostrophe, and 10 digits.
+    total_cmb = 37**3
+    total_words = sum(prefixes.itervalues())
+    assert total_words == sum(suffixes.itervalues()), "Bad words count"
+    norm = float(total_cmb + total_words)
+
+    # Laplace smooth probabilities using total_cmb (adding one to every
+    # combination).
+    for k in prefixes:
+        prefixes[k] /= norm
+    for k in suffixes:
+        suffixes[k] /= norm
+    p_default = 1. / norm
+
+    return [re_not_alpha, prefixes, suffixes, p_default]
