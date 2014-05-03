@@ -1,0 +1,43 @@
+#!/bin/bash
+# Recompress and process any new files.
+
+cat='/bin/cat'
+
+usage() {
+  script_name=`basename $0`
+  cat <<EOF
+  Usage: ${script_name} DATA_DIR OUTPUT_DIR
+
+  Recompress any data in DATA_DIR and then process any files not yet saved to
+  OUTPUT_DIR.
+EOF
+}
+
+if [ $# -ne "2" ]; then
+  echo "Error: bad arguments" 1>&2
+  usage
+  exit 1
+fi
+
+script_dir=`dirname $0`
+data_dir="$1"; shift
+output_dir="$1"; shift
+
+recompress="${script_dir}/recompress_data"
+process="${script_dir}/process_file"
+
+"${recompress}" "${data_dir}"
+
+processed_log="${data_dir}/processed.log"
+
+if [ ! -f "${processed_log}" ]; then
+  echo "Processed log ${processed_log} does not exist" 1>&2
+  exit 1
+fi
+
+while read -r file; do
+  if [ ! -f "${output_dir}/${file}.counts" ] || \
+     [ ! -f "${output_dir}/${file}.interesting" ]; then
+    "${process}" -o "${output_dir}" "${data_dir}/${file}"
+  fi
+done < "${processed_log}" 

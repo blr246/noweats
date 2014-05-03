@@ -14,6 +14,7 @@ setup(name='NowEats',
       scripts=[
           'bin/collect_nyc',
           'bin/process_file',
+          'bin/process_new',
           'bin/recompress_data',
       ],
       )
