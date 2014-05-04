@@ -15,7 +15,7 @@ touch='/bin/touch'
 grep='/bin/grep'
 sed='/bin/sed'
 
-bzip2='/usr/bin/bzip2'
+bzip2='/usr/bin/pbzip2'
 
 # Remember files that we have converted.
 
