@@ -14,7 +14,13 @@ import bz2
 
 _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
 
-_REMOVE_USER_HASH = '^@[\\S]+\\s*|@\\b|#\\b'
+_REMOVE_USER_HASH = '|'.join((
+    '(@[\\S]+\\s+){1,}@[\\S]+',  # 2 or more @mentions in a row
+    '^@[\\S]+\\s*',              # a leading @mentions
+    '@\\b',                      # remove @ from single @mention
+    '(#[\\S]+\\s+){1,}#[\\S]+',  # 2 or more #hashtags in a row
+    '#\\b',                      # remove # from single #hashtag
+))
 
 _REMOVE_MISSED_UNICODE = '\[\?\]'
 
@@ -25,11 +31,14 @@ _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_MISSED_UNICODE,
                                    _REMOVE_PUNCTUATION)))
 
-_SENTENCE_DELIMS = '\.\?\!;\n'
+_NON_PERIOD_DELIMS = '\?\!;\n'
 
-_RE_SENTENCE = re.compile(('\\s*[{}]{{2,}}\\s*'
-                           '|\\b\\s*[{}]\\s*').format(_SENTENCE_DELIMS,
-                                                      _SENTENCE_DELIMS))
+_RE_SENTENCE = re.compile(
+    '|'.join(('\\s*[{}]{{1,}}\\s*'    # 1 or more non-period
+              .format(_NON_PERIOD_DELIMS),
+              '\\s*\.{2,}\\s*',       # 2 or more periods
+              '\\s*\.(?![0-9])\\s*',  # not a number
+              )))
 
 _FIX_WHITESPACE = re.compile('[\\s\\\/]+')
 _HTMLPARSER = HTMLParser()
