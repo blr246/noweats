@@ -16,11 +16,14 @@ grep='/bin/grep'
 sed='/bin/sed'
 
 bzip2='/usr/bin/pbzip2'
+if [ ! -f "${bzip2}" ]; then
+  bzip2='/usr/bin/bzip2'
+fi
 
 # Remember files that we have converted.
 
 # On any signal, just quit.
-trap "exit 1" SIGINT SIGTERM SIGKILL
+trap "exit 1" SIGINT SIGTERM SIGKILL ERR
 
 usage() {
   script_name=`${basename} $0`

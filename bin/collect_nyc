@@ -4,13 +4,18 @@ Collect data for NYC.
 """
 from noweats.collection import ApiKeys, StreamFilterRunner
 from argparse import ArgumentParser, FileType
+from tweepy.error import TweepError
 
 import json
 import os
+import logging
 
 
 def main():
     """ Collect NYC Twitter food stream. """
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('collect_nyc')
 
     home_dir = os.path.expanduser('~')
     default_conf_dir = os.path.join(home_dir, '.noweats')
@@ -32,9 +37,13 @@ def main():
     track = ['ate', 'eating', 'eat']
     location = [-74, 40, -73, 41]
     output_prefix = '{}_nyc'.format('_'.join(track))
-    with StreamFilterRunner(apikeys, track, location, args.data_dir,
-                            output_prefix, ('H', 1)):
-        pass
+    while True:
+        try:
+            with StreamFilterRunner(apikeys, track, location, args.data_dir,
+                                    output_prefix, ('H', 1)):
+                pass
+        except TweepError:
+            logger.exception("Caught TweepError:")
 
 if __name__ == '__main__':
     main()

@@ -10,15 +10,19 @@ from noweats.analysis import merge_most_common_counts, find_interesting
 from multiprocessing import Pool
 
 import os
-import sys
 import json
 import pickle
+import logging
 
 _EAT_LEXICON = ['eat', 'ate', 'eating']
 
 _MERGE_TOP_K = 200
 
 _NUM_INTERESTING = 50
+
+logging.basicConfig(level=logging.INFO)
+_LOGGER = logging.getLogger("process_file")
+
 
 def process_files(file_paths, output_dir,
                   eat_lexicon, filters,
@@ -29,36 +33,40 @@ def process_files(file_paths, output_dir,
 
     for path in file_paths:
 
-        filename = os.path.basename(path)
-        data_json = read_json(path)
-        tweets = sentence_split_clean_data(data_json, eat_lexicon)
-        tokenized = pool.map(tokenize_tweet, tweets, 2000)
+        try:
+            filename = os.path.basename(path)
+            data_json = read_json(path)
+            tweets = sentence_split_clean_data(data_json, eat_lexicon)
+            tokenized = pool.map(tokenize_tweet, tweets, 2000)
 
-        # Process in parallel. These parts be slow.
-        pos_tagged = pool.map(pos_tag_tweet, tokenized, 1000)
+            # Process in parallel. These parts be slow.
+            pos_tagged = pool.map(pos_tag_tweet, tokenized, 1000)
 
-        # Save POS tagged data in case we wish to resume.
-        tagged_path = os.path.join(output_dir,
-                                   '{}.tagged'.format(filename))
-        with open(tagged_path, 'w') as filep:
-            pickle.dump(pos_tagged, filep)
+            # Save POS tagged data in case we wish to resume.
+            tagged_path = os.path.join(output_dir,
+                                    '{}.tagged'.format(filename))
+            with open(tagged_path, 'w') as filep:
+                pickle.dump(pos_tagged, filep)
 
-        chunked = [chunk_tweet(tweet) for tweet in pos_tagged]
-        counts = count_foods(chunked, eat_lexicon, filters)
+            chunked = [chunk_tweet(tweet) for tweet in pos_tagged]
+            counts = count_foods(chunked, eat_lexicon, filters)
 
-        merged_counts = merge_most_common_counts(counts, merge_top_k)
-        interesting = find_interesting(counts, num_interesting)
+            merged_counts = merge_most_common_counts(counts, merge_top_k)
+            interesting = find_interesting(counts, num_interesting)
 
-        # Save counts and interesting to output directory.
-        counts_path = os.path.join(output_dir,
-                                   '{}.counts'.format(filename))
-        with open(counts_path, 'w') as filep:
-            json.dump(merged_counts, filep)
+            # Save counts and interesting to output directory.
+            counts_path = os.path.join(output_dir,
+                                    '{}.counts'.format(filename))
+            with open(counts_path, 'w') as filep:
+                json.dump(merged_counts, filep)
 
-        interesting_path = os.path.join(output_dir,
-                                        '{}.interesting'.format(filename))
-        with open(interesting_path, 'w') as filep:
-            json.dump(interesting, filep)
+            interesting_path = os.path.join(output_dir,
+                                            '{}.interesting'.format(filename))
+            with open(interesting_path, 'w') as filep:
+                json.dump(interesting, filep)
+
+        except Exception:
+            _LOGGER.exception("Error processing file {}".format(filename))
 
 
 def main():
@@ -88,8 +96,8 @@ def main():
     # Read filters from conf dir.
     filters_path = os.path.join(args.conf_dir, 'filters.conf')
     if not os.path.isfile(filters_path):
-        print >> sys.stderr, "Warning: cannot find filters " \
-            "in config dir {}".format(args.conf_dir)
+        _LOGGER.warning("Warning: cannot find filters " \
+                        "in config dir {}".format(args.conf_dir))
         filters = []
     else:
         filters = filters_from_dict(json.load(open(filters_path, 'r')))
