@@ -61,20 +61,31 @@ for path in `${find} "${data_dir}" -type f -name '*.*'`; do
   filename=`basename "${path}"`
 
   # Filter ignored filename types.
-  if ${echo} "${filename}" | ${grep} -Eq '(\.bz2$|\.tmp$|\.log$)' \
-    || ${echo} "${filename}" | ${grep} -f "${processed_log}"; then
-    echo "Skipping ${filename}"
-    continue
+  if ${echo} "${filename}" \
+    | ${grep} -Eq '(^\.|\.bz2$|\.tmp$|\.log$)' >/dev/null; then
+    ${echo} "Skipping ${filename}"
+
+  else
+    if ! ${echo} "${filename}" \
+      | ${grep} -qf "${processed_log}" >/dev/null; then
+      ${echo} "Re-compressing ${filename}"
+      tmp_filename="${data_dir}/${filename}.tmp"
+      ${bzip2} -cd "${data_dir}/${filename}" >"${tmp_filename}"
+      ${bzip2} -z "${tmp_filename}"
+      ${mv} "${tmp_filename}.bz2" "${data_dir}/${filename}"
+
+      # Add processed record.
+      ${echo} "${filename}" >> ${processed_log}
+    fi
+
+    # Update file date stamp.
+    date=`${echo} "${filename}" \
+      | ${sed} -e 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}_[0-9]\{2\}\).*/\1/' \
+               -e 's/_\([0-9]\{2\}\)$/ \1:00:00/'`
+    ${echo} "Resetting timestamp of ${filename} to ${date}"
+    ${touch} -d "${date}" "${data_dir}/${filename}"
   fi
 
-  ${echo} "Re-compressing ${filename}"
-  tmp_filename="${data_dir}/${filename}.tmp"
-  ${bzip2} -cd "${data_dir}/${filename}" >"${tmp_filename}"
-  ${bzip2} -z "${tmp_filename}"
-  ${mv} "${tmp_filename}.bz2" "${data_dir}/${filename}"
-
-  # Add processed record.
-  ${echo} "${filename}" >> ${processed_log}
 done
 
 exit 0
