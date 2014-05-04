@@ -28,6 +28,8 @@ process="${script_dir}/process_file"
 
 "${recompress}" "${data_dir}"
 
+echo Completed recompress stage...
+
 processed_log="${data_dir}/processed.log"
 
 if [ ! -f "${processed_log}" ]; then
@@ -35,9 +37,14 @@ if [ ! -f "${processed_log}" ]; then
   exit 1
 fi
 
+echo Starting processing stage...
+
 while read -r file; do
   if [ ! -f "${output_dir}/${file}.counts" ] || \
      [ ! -f "${output_dir}/${file}.interesting" ]; then
+    echo Processing file "${data_dir}/${file}"
     "${process}" -o "${output_dir}" "${data_dir}/${file}"
   fi
 done < "${processed_log}" 
+
+echo Completed processing stage...

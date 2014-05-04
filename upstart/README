@@ -1,0 +1,4 @@
+These files enable installation of noweats as a service.
+
+Use noweats.conf in your /etc/init or ~/.init directories. The noweats.sh
+script is what upstart runs to install noweats as a service.
