@@ -42,11 +42,11 @@ def process_files(file_paths, output_dir,
             # Process in parallel. These parts be slow.
             pos_tagged = pool.map(pos_tag_tweet, tokenized, 1000)
 
-            # Save POS tagged data in case we wish to resume.
-            tagged_path = os.path.join(output_dir,
-                                    '{}.tagged'.format(filename))
-            with open(tagged_path, 'w') as filep:
-                pickle.dump(pos_tagged, filep)
+            ## Save POS tagged data in case we wish to resume.
+            #tagged_path = os.path.join(output_dir,
+            #                        '{}.tagged'.format(filename))
+            #with open(tagged_path, 'w') as filep:
+            #    pickle.dump(pos_tagged, filep)
 
             chunked = [chunk_tweet(tweet) for tweet in pos_tagged]
             counts = count_foods(chunked, eat_lexicon, filters)
