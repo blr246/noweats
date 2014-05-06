@@ -37,7 +37,7 @@ _RE_SENTENCE = re.compile(
               '\\s*\.(?![0-9])\\s*',    # not a number
               )))
 
-_RE_REMOVE_CHARS = re.compile('[^\\s\\w@&+()-]+')
+_RE_REMOVE_CHARS = re.compile('[^\\s\\w@&+()\',-]+')
 _RE_FIX_WHITESPACE = re.compile('[\\s\\\/]+')
 
 _HTMLPARSER = HTMLParser()
