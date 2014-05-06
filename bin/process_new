@@ -45,6 +45,6 @@ while read -r file; do
     echo Processing file "${data_dir}/${file}"
     "${process}" -o "${output_dir}" "${data_dir}/${file}"
   fi
-done < "${processed_log}" 
+done < <(sort -r "${processed_log}" )
 
 echo Completed processing stage...

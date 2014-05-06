@@ -17,9 +17,7 @@ _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
 _REMOVE_MISSED_UNICODE = '\[\?\]'
 
 _REMOVE_USER_HASH = '|'.join((
-    '(@[\\S]+\\s+){1,}@[\\S]+',  # 2 or more @mentions in a row
-    '^@[\\S]+\\s*',              # a leading @mentions
-    '@\\b',                      # remove @ from single @mention
+    '@[\\S]+',                   # any @mention
     '(#[\\S]+\\s+){1,}#[\\S]+',  # 2 or more #hashtags in a row
     '#\\b',                      # remove # from single #hashtag
 ))
