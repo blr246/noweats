@@ -24,12 +24,11 @@ _REMOVE_USER_HASH = '|'.join((
     '#\\b',                      # remove # from single #hashtag
 ))
 
-_REMOVE_SYMBOLS = '["{}[\]]+'
-
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_MISSED_UNICODE,
                                    _REMOVE_USER_HASH,
-                                   _REMOVE_SYMBOLS)))
+                                   ))
+                         )
 
 _RE_SENTENCE = re.compile(
     '|'.join(('\\s*[\?\!;\n]{1,}\\s*',  # 1 or more non-period
