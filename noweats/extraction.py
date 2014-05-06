@@ -24,7 +24,7 @@ _REMOVE_USER_HASH = '|'.join((
     '#\\b',                      # remove # from single #hashtag
 ))
 
-_REMOVE_SYMBOLS = '["|{}[\]]+'
+_REMOVE_SYMBOLS = '["{}[\]]+'
 
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_MISSED_UNICODE,
@@ -92,7 +92,7 @@ def sentence_split_clean_data(data_json, eat_lexicon):
     return [
         sentences for sentences in
         (tuple(_RE_FIX_WHITESPACE
-               .sub(' ', _RE_REMOVE_CHARS.sub('', sentence)).strip()
+               .sub(' ', _RE_REMOVE_CHARS.sub(' ', sentence)).strip()
                for sentence in _RE_SENTENCE.split(_RE_PREPROC.sub('', text))
                if eat_lexicon_re.search(sentence) is not None
                )
