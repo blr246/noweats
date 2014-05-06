@@ -16,12 +16,6 @@ _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
 
 _REMOVE_MISSED_UNICODE = '\[\?\]'
 
-_REMOVE_DELIM_PHRASE = '|'.join((
-    '\([^)]*\)',   # (example)
-    '\[[^\]]*\]',  # [example]
-    '\{[^}]*\}',   # {example}
-))
-
 _REMOVE_USER_HASH = '|'.join((
     '(@[\\S]+\\s+){1,}@[\\S]+',  # 2 or more @mentions in a row
     '^@[\\S]+\\s*',              # a leading @mentions
@@ -30,11 +24,10 @@ _REMOVE_USER_HASH = '|'.join((
     '#\\b',                      # remove # from single #hashtag
 ))
 
-_REMOVE_SYMBOLS = '["|(){}[\]]+'
+_REMOVE_SYMBOLS = '["|{}[\]]+'
 
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_MISSED_UNICODE,
-                                   _REMOVE_DELIM_PHRASE,
                                    _REMOVE_USER_HASH,
                                    _REMOVE_SYMBOLS)))
 
@@ -44,7 +37,7 @@ _RE_SENTENCE = re.compile(
               '\\s*\.(?![0-9])\\s*',    # not a number
               )))
 
-_RE_REMOVE_CHARS = re.compile('[^\\s\\w-]+')
+_RE_REMOVE_CHARS = re.compile('[^\\s\\w@&+()-]+')
 _RE_FIX_WHITESPACE = re.compile('[\\s\\\/]+')
 
 _HTMLPARSER = HTMLParser()
