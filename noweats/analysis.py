@@ -8,7 +8,8 @@ import math
 
 
 def merge_most_common_counts(counts, num_to_get=None,
-                             simiarity_thresh=0.7, min_len=3, debug=False):
+                             simiarity_thresh=0.7,
+                             len_range=(3, 30), debug=False):
     """
     Consolidate counts for sufficiently similar things.
 
@@ -31,7 +32,7 @@ def merge_most_common_counts(counts, num_to_get=None,
 
     filtered_keys = [key.lower()
                      for key, _ in counts.most_common()
-                     if len(key) >= min_len]
+                     if len(key) >= len_range[0] and len(key) <= len_range[1]]
 
     merged = [None] * len(filtered_keys)
     merged_counts = Counter()
