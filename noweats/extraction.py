@@ -14,6 +14,14 @@ import bz2
 
 _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
 
+_REMOVE_MISSED_UNICODE = '\[\?\]'
+
+_REMOVE_DELIM_PHRASE = '|'.join((
+    '\([^)]*\)',   # (example)
+    '\[[^\]]*\]',  # [example]
+    '\{[^}]*\}',   # {example}
+))
+
 _REMOVE_USER_HASH = '|'.join((
     '(@[\\S]+\\s+){1,}@[\\S]+',  # 2 or more @mentions in a row
     '^@[\\S]+\\s*',              # a leading @mentions
@@ -22,35 +30,35 @@ _REMOVE_USER_HASH = '|'.join((
     '#\\b',                      # remove # from single #hashtag
 ))
 
-_REMOVE_MISSED_UNICODE = '\[\?\]'
-
-_REMOVE_PUNCTUATION = '"'
+_REMOVE_SYMBOLS = '["|(){}[\]]+'
 
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
-                                   _REMOVE_USER_HASH,
                                    _REMOVE_MISSED_UNICODE,
-                                   _REMOVE_PUNCTUATION)))
-
-_NON_PERIOD_DELIMS = '\?\!;\n'
+                                   _REMOVE_DELIM_PHRASE,
+                                   _REMOVE_USER_HASH,
+                                   _REMOVE_SYMBOLS)))
 
 _RE_SENTENCE = re.compile(
-    '|'.join(('\\s*[{}]{{1,}}\\s*'    # 1 or more non-period
-              .format(_NON_PERIOD_DELIMS),
-              '\\s*\.{2,}\\s*',       # 2 or more periods
-              '\\s*\.(?![0-9])\\s*',  # not a number
+    '|'.join(('\\s*[\?\!;\n]{1,}\\s*',  # 1 or more non-period
+              '\\s*\.{2,}\\s*',         # 2 or more periods
+              '\\s*\.(?![0-9])\\s*',    # not a number
               )))
 
-_FIX_WHITESPACE = re.compile('[\\s\\\/]+')
+_RE_REMOVE_CHARS = re.compile('[^\\s\\w-]+')
+_RE_FIX_WHITESPACE = re.compile('[\\s\\\/]+')
+
 _HTMLPARSER = HTMLParser()
 
 _RE_FOOD_POS = re.compile('^N.*|^JJ')
 
-_RE_TWEET_AND = re.compile('"lang"\\s*:\\s*"en"')
-_RE_TWEET_NOT = re.compile('"retweeted_status"\\s*:'
-                           '|"text"\\s*:\\s*"\\s*RT'
-                           '|"lang"\\s*:\\s*"(?!en)')
+_RE_LANG_EN = re.compile('"lang"\\s*:\\s*"en"')
+_RE_TWEET_NOT = re.compile('|'.join((
+    '"retweeted_status"\\s*:',  # is a retweet
+    '"text"\\s*:\\s*"\\s*RT',   # is a retweet by text
+    '"lang"\\s*:\\s*"(?!en)',   # is non-English
+)))
 
-_FILTER_TWEET = lambda datas: _RE_TWEET_AND.search(datas) is not None \
+_FILTER_TWEET = lambda datas: _RE_LANG_EN.search(datas) is not None \
     and _RE_TWEET_NOT.search(datas) is None
 
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
@@ -85,14 +93,15 @@ def sentence_split_clean_data(data_json, eat_lexicon):
     :return list: list of tuples of sentences split from tweets where each
     sentence contains at least one word from the eat lexicon
     """
+    # Note that test for eat_lexicon guarantees that the sentence will have
+    # nonzero length.
     eat_lexicon_re = re.compile('|'.join(eat_lexicon), re.IGNORECASE)
     return [
         sentences for sentences in
-        (tuple(_FIX_WHITESPACE.sub(' ', sentence) for sentence in
-               it.imap(lambda s: s.strip(),
-                       _RE_SENTENCE.split(_RE_PREPROC.sub('', text)))
-               if len(sentence) > 0
-               and eat_lexicon_re.search(sentence) is not None
+        (tuple(_RE_FIX_WHITESPACE
+               .sub(' ', _RE_REMOVE_CHARS.sub('', sentence)).strip()
+               for sentence in _RE_SENTENCE.split(_RE_PREPROC.sub('', text))
+               if eat_lexicon_re.search(sentence) is not None
                )
          for text in it.imap(_GET_TEXT, data_json)
          )
@@ -199,15 +208,15 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
 
         elif state == _STATE_NP_FOUND:
 
-            if isinstance(stree, tuple) \
-                    and (stree[0].lower() in ['of', 'in', 'on', 'with']
-                         or stree[0].lower() in ['and']):
-                words.append(stree)
-                filtered_words.append(stree)
-                state = _STATE_IN_FOUND
+            newstate = _STATE_NP_COMPLETE
+            if isinstance(stree, tuple):
+                word = stree[0].lower()
+                if word in ['of', 'in', 'on', 'with', 'and']:
+                    words.append(stree)
+                    filtered_words.append((word, stree[1]))
+                    newstate = _STATE_IN_FOUND
 
-            else:
-                state = _STATE_NP_COMPLETE
+            state = newstate
 
             assert state in [_STATE_IN_FOUND, _STATE_NP_COMPLETE]
 
