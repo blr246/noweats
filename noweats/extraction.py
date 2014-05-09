@@ -2,6 +2,7 @@
 Extract foods that people are eating from their Tweets.
 """
 from nltk.chunk import RegexpParser
+from nltk.corpus import stopwords
 from nltk import word_tokenize, pos_tag, Tree
 from unidecode import unidecode
 from HTMLParser import HTMLParser
@@ -54,6 +55,8 @@ _FILTER_TWEET = lambda datas: _RE_LANG_EN.search(datas) is not None \
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
 
 _GET_TEXT = lambda data: unidecode(_HTMLPARSER.unescape(data['text']))
+
+_STOPWORDS_EN = set(stopwords.words('english'))
 
 
 def _build_noun_chunker():
@@ -239,7 +242,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
             food_unfiltered = ' '.join(w for w, _ in words)
             print "Filtered: {} => {}".format(food_unfiltered, food)
 
-        if len(food) > 0:
+        if len(food) > 0 and food not in _STOPWORDS_EN:
             return food
 
     return None
