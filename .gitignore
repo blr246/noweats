@@ -59,3 +59,8 @@ data/*
 
 # Vim
 .*.swp
+
+# LaTex
+*.aux
+*.pdf
+*.out

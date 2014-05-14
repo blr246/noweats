@@ -1,0 +1,3 @@
+[submodule "report/tex-util"]
+	path = report/tex-util
+	url = git@github.com:blr246/tex-util
