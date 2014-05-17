@@ -128,7 +128,7 @@ def find_interesting(counts, num_to_find,
 
     most_interesting = sorted(
         food_terms,
-        key=lambda terms: sum(idf[t] for t in set(terms)),
+        key=lambda terms: sum(idf[t] for t in terms),
         reverse=True)
 
     merged_most_interesting = []
