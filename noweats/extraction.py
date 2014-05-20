@@ -23,9 +23,12 @@ _REMOVE_USER_HASH = '|'.join((
     '#\\b',                      # remove # from single #hashtag
 ))
 
+_REMOVE_SPACED_CHARS = '(\\A|\\s)\\w(\\s+\\w){2,}(?=\\Z|\\s)'
+
 _RE_PREPROC = re.compile('|'.join((_REMOVE_LINKS,
                                    _REMOVE_MISSED_UNICODE,
                                    _REMOVE_USER_HASH,
+                                   _REMOVE_SPACED_CHARS,
                                    ))
                          )
 
