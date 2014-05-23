@@ -10,7 +10,7 @@ from collections import Counter
 
 import re
 import json
-import itertools as it
+import itertools as its
 import bz2
 
 _REMOVE_LINKS = '\\s?\\bhttp[\S]+'
@@ -99,15 +99,22 @@ def sentence_split_clean_data(data_json, eat_lexicon):
                for sentence in _RE_SENTENCE.split(_RE_PREPROC.sub('', text))
                if eat_lexicon_re.search(sentence) is not None
                )
-         for text in it.imap(_GET_TEXT, data_json)
+         for text in its.imap(_GET_TEXT, data_json)
          )
         if len(sentences) > 0
     ]
 
 
+def remove_dups(tweets, keep_thresh=1):
+    """ Filter duplicate tweets since they are likely to be spam. """
+    hash_tw = lambda tw: tuple(set(w.lower() for s in tw for w in s.split()))
+    hashes = Counter(hash_tw(tw) for tw in tweets)
+    return [tw for tw in tweets if hashes[hash_tw(tw)] <= keep_thresh]
+
+
 def score_tweet_en(tweet, en_model):
     """ Score a tweet. """
-    scores = [s for s in it.imap(en_model, it.chain(*tweet)) if s is not None]
+    scores = [s for s in its.imap(en_model, its.chain(*tweet)) if s is not None]
     if len(scores) > 0:
         return sum(scores) / float(len(scores))
     else:
@@ -170,7 +177,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
     state = _STATE_SCAN_EAT
 
     # Append a state to transition to complete at end of sentence.
-    for stree in it.chain(tree, (('', ''),)):
+    for stree in its.chain(tree, (('', ''),)):
 
         if state == _STATE_SCAN_EAT:
 
@@ -192,7 +199,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
                 words = new_words
 
                 filtered_words = [(w, pos) for w, pos
-                                  in it.ifilter(_FILTER_POS, new_words)
+                                  in its.ifilter(_FILTER_POS, new_words)
                                   if all(f(w) for f in filters)]
 
                 if len(filtered_words) > 0:
@@ -227,7 +234,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
                 words.extend(new_words)
 
                 filtered_words.extend((w, pos) for w, pos
-                                      in it.ifilter(_FILTER_POS, new_words)
+                                      in its.ifilter(_FILTER_POS, new_words)
                                       if all(f(w) for f in filters))
 
             state = _STATE_NP_COMPLETE
@@ -275,50 +282,7 @@ def count_foods(chunked_tweets, eat_lexicon, filters, debug=False):
     return counts
 
 
-def make_en_prefix_suffix_model(model):
-    """ Create a function that scores English words. """
-
-    re_not_alpha, prefixes, suffixes, p_default = model
-
-    def p_word(word):
-        """ Compute probability of a word under the model. """
-
-        if len(word) < 3 or re_not_alpha.match(word) is not None:
-            return None
-
-        prefix, suffix = word[:3].lower(), word[-3:].lower()
-
-        p_prefix = prefixes[prefix] if prefix in prefixes else p_default
-        p_suffix = suffixes[suffix] if suffix in suffixes else p_default
-        return p_prefix * p_suffix
-
-    return p_word
-
-
-def build_en_prefix_suffix_model(data_json):
-    """ Create a probabilisitc model of English words from data. """
-
-    re_not_alpha = re.compile('^[^a-zA-Z]+$')
-    all_tweets = sentence_split_clean_data(data_json, ['.'])
-    toks = [t for tw in all_tweets
-            for s in tw
-            for t in word_tokenize(s)]
-    prefixes = Counter(t[:3].lower() for t in toks
-                       if len(t) > 2 and re_not_alpha.match(t) is None)
-    suffixes = Counter(t[-3:].lower() for t in toks
-                       if len(t) > 2 and re_not_alpha.match(t) is None)
-    # There are 26 alpha characters, 1 apostrophe, and 10 digits.
-    total_cmb = 37**3
-    total_words = sum(prefixes.itervalues())
-    assert total_words == sum(suffixes.itervalues()), "Bad words count"
-    norm = float(total_cmb + total_words)
-
-    # Laplace smooth probabilities using total_cmb (adding one to every
-    # combination).
-    for k in prefixes:
-        prefixes[k] /= norm
-    for k in suffixes:
-        suffixes[k] /= norm
-    p_default = 1. / norm
-
-    return [re_not_alpha, prefixes, suffixes, p_default]
+def allowed_chars_no_whitespace():
+    """ Compute set of chars that pass the filtering stage. """
+    allchars = ''.join(chr(i) for i in range(256)).lower()
+    return set(_RE_FIX_WHITESPACE.sub('', _RE_REMOVE_CHARS.sub(' ', allchars)))

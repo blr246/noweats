@@ -1,0 +1,252 @@
+#!/usr/bin/env python
+"""
+Mark food items and test system precision.
+"""
+from argparse import ArgumentParser
+from time import sleep
+
+import os
+import json
+
+def clear_screen():
+    """ Clear terminal. """
+    print chr(27) + "[2J"
+    print "\033[0;0f"
+
+class _Getch:
+    """
+    Gets a single character from standard input.  Does not echo to the
+    screen.
+
+    http://code.activestate.com/recipes/134892/
+    """
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self): return self.impl()
+
+
+class _GetchUnix:
+    def __init__(self):
+        import tty, sys
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+class _GetchWindows:
+    def __init__(self):
+        import msvcrt
+
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+
+getch = _Getch()
+
+UP = chr(27) + '[A'
+DOWN = chr(27) + '[B'
+LEFT = chr(27) + '[D'
+RIGHT = chr(27) + '[C'
+SPACE = ' '
+CTRL_C = chr(3)
+FOOD = u"\u2713"
+NOT_FOOD = u"\u2717"
+FOOD_CACHED = u'*' + FOOD
+NOT_FOOD_CACHED = u'*' + NOT_FOOD
+UNMARKED = ''
+ALREADY_RELEVANT_DELAY = 0.1
+ACTION_MAP = {
+    FOOD : RIGHT,
+    NOT_FOOD : LEFT,
+}
+
+
+def cached(mark):
+    """ Is the mark a cache item. """
+    return mark in [FOOD_CACHED, NOT_FOOD_CACHED]
+
+
+def print_screen(wnd, idx, cursor, wnd_max):
+    """ Print the program screen. """
+
+    curs = 'NOT_FOOD <<<'
+    curs_pad = ' ' * len(curs)
+
+    padding_top = [u''] * (cursor - idx)
+    padding_bot = [u''] * (wnd_max - len(padding_top) - len(wnd))
+
+    lines = [[curs_pad, u'{:>2s}'.format(flag), food] for flag, food in wnd]
+    #lines = [[curs_pad, flag, food] for flag, food in wnd]
+    lines[idx][0] = curs
+
+    lines_flat = [' '.join(fields) for fields in lines]
+    lines_flat[idx] = lines_flat[idx] + ' >>> FOOD'
+
+    print '\n'.join(padding_top + lines_flat + padding_bot)
+
+
+def interactive_mark(marked_foods, food_cache, not_food_cache):
+    """ Present interactive marking ui for the given foods. """
+
+    idx, max_idx = 0, -1
+    behind, ahead = 2, 11
+    while True:
+
+        wnd_s = max(idx - behind, 0)
+        wnd_e = idx + ahead + 1
+        wnd_idx = min(idx, behind)
+        wnd = marked_foods[wnd_s:wnd_e]
+
+        clear_screen()
+        print_screen(wnd, wnd_idx, behind, behind + ahead + 1)
+        print ""
+        print u"Press \u2191 to go back"
+        print u"      \u2190, \u2192 to select NOT_FOOD, FOOD"
+        print u"      \u2193 to skip current already marked"
+        print u"      \u2423 (spacebar) to skip all already marked"
+
+        current_mark, current_food = marked_foods[idx]
+
+        # See if we've never been here before.
+        if idx > max_idx and cached(current_mark):
+            # Wait a tick then mark food for the user.
+            sleep(ALREADY_RELEVANT_DELAY)
+            if FOOD_CACHED == current_mark:
+                chin = ACTION_MAP[FOOD]
+            else:
+                chin = ACTION_MAP[NOT_FOOD]
+        else:
+            chin = getch()
+            if 27 == ord(chin):
+                chin = chin + getch() + getch()
+
+        max_idx = max(max_idx, idx)
+
+
+        if ACTION_MAP[FOOD] == chin:
+            marked_foods[idx] = (FOOD, current_food)
+            idx += 1
+            food_cache.add(current_food)
+            try:
+                not_food_cache.remove(current_food)
+            except KeyError:
+                pass
+
+        elif ACTION_MAP[NOT_FOOD] == chin:
+            marked_foods[idx] = (NOT_FOOD, current_food)
+            idx += 1
+            not_food_cache.add(current_food)
+            try:
+                food_cache.remove(current_food)
+            except KeyError:
+                pass
+
+        elif UP == chin:
+            idx = max(0, idx - 1)
+
+        elif DOWN == chin:
+            if len(marked_foods) > idx + 1 and current_mark != UNMARKED:
+                idx += 1
+
+        elif SPACE == chin:
+            while current_mark != UNMARKED and idx < len(marked_foods):
+                idx += 1
+                current_mark = marked_foods[idx][0]
+
+        elif CTRL_C == chin:
+            return False
+
+        if idx >= len(marked_foods):
+            return True
+
+
+def main():
+    """ Main method. """
+
+    home_dir = os.path.expanduser('~')
+    default_conf_dir = os.path.join(home_dir, '.noweats')
+
+    parser = ArgumentParser(description=
+                            "Mark output items as relevant or not.")
+
+    parser.add_argument('-c', '--conf-dir', help="path to configuration data",
+                        type=str, default=default_conf_dir)
+
+    parser.add_argument('file_paths', help="paths to input files",
+                        nargs='+')
+
+    args = parser.parse_args()
+
+    # Get relevant foods cache.
+    relevant_foods_cache_path = os.path.join(args.conf_dir,
+                                             "relevant_foods_cache.json")
+    if os.path.exists(relevant_foods_cache_path):
+        with open(relevant_foods_cache_path, 'rU') as fcfp:
+            food_cache, not_food_cache = [set(lst) for lst in json.load(fcfp)]
+    else:
+        food_cache, not_food_cache = set(), set()
+
+    cache_intersect = not_food_cache.intersection(food_cache)
+    assert len(cache_intersect) == 0, \
+        "Food caches have nonzero intersection {}".format(cache_intersect)
+
+    def pre_mark_food(food):
+        """ Use caches to mark the food. """
+        if food in food_cache:
+            return FOOD_CACHED
+        if food in not_food_cache:
+            return NOT_FOOD_CACHED
+        return UNMARKED
+
+    precision_results = dict()
+
+    # Open food file.
+    for food_counts_path in args.file_paths:
+
+        food_counts = json.load(open(food_counts_path, 'r'))
+
+
+        marked_foods = [(pre_mark_food(food), food) for food in food_counts.iterkeys()]
+        num_to_mark = sum(1 for mark, _ in marked_foods if UNMARKED == mark)
+
+        if num_to_mark > 0:
+            marked = interactive_mark(marked_foods, food_cache, not_food_cache)
+            if not marked:
+                break
+        else:
+            marked_foods = [(FOOD if mark is FOOD_CACHED else NOT_FOOD, food)
+                            for mark, food in marked_foods]
+
+        # Sum correct.
+        correct = sum(food_counts[food]
+                    for mark, food in marked_foods if mark == FOOD)
+        num_response = sum(food_counts.itervalues())
+        precision = float(correct) / num_response
+
+        precision_results[food_counts_path] = precision
+
+    print ""
+
+    for path, precision in precision_results.iteritems():
+        print "Precision for file {} is {}".format(path, precision)
+
+    # Commit relevant foods.
+    json.dump([list(food_cache), list(not_food_cache)],
+              open(relevant_foods_cache_path, 'w'))
+
+
+if __name__ == '__main__':
+    main()
