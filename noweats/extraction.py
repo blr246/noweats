@@ -107,7 +107,10 @@ def sentence_split_clean_data(data_json, eat_lexicon):
 
 def remove_dups(tweets, keep_thresh=1):
     """ Filter duplicate tweets since they are likely to be spam. """
-    hash_tw = lambda tw: tuple(set(w.lower() for s in tw for w in s.split()))
+    hash_tw = lambda tw: tuple(set(w.lower()
+                                   for s in tw
+                                   for w in s.split()
+                                   if w not in _STOPWORDS_EN))
     hashes = Counter(hash_tw(tw) for tw in tweets)
     return [tw for tw in tweets if hashes[hash_tw(tw)] <= keep_thresh]
 

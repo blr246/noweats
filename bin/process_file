@@ -5,7 +5,7 @@ Process Twitter stream files for food counts.
 from argparse import ArgumentParser
 from noweats.extraction import filters_from_dict, read_json, \
     sentence_split_clean_data, tokenize_tweet, \
-    pos_tag_tweet, chunk_tweet, count_foods
+    pos_tag_tweet, chunk_tweet, count_foods, remove_dups
 from noweats.analysis import merge_most_common_counts, find_interesting
 from multiprocessing import Pool
 
@@ -37,6 +37,7 @@ def process_files(file_paths, output_dir,
             filename = os.path.basename(path)
             data_json = read_json(path)
             tweets = sentence_split_clean_data(data_json, eat_lexicon)
+            tweets = remove_dups(tweets)
             tokenized = pool.map(tokenize_tweet, tweets, 2000)
 
             # Process in parallel. These parts be slow.

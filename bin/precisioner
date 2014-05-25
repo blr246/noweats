@@ -67,7 +67,7 @@ NOT_FOOD = u"\u2717"
 FOOD_CACHED = u'*' + FOOD
 NOT_FOOD_CACHED = u'*' + NOT_FOOD
 UNMARKED = ''
-ALREADY_RELEVANT_DELAY = 0.1
+ALREADY_RELEVANT_DELAY = 0.060
 ACTION_MAP = {
     FOOD : RIGHT,
     NOT_FOOD : LEFT,
@@ -89,7 +89,6 @@ def print_screen(wnd, idx, cursor, wnd_max):
     padding_bot = [u''] * (wnd_max - len(padding_top) - len(wnd))
 
     lines = [[curs_pad, u'{:>2s}'.format(flag), food] for flag, food in wnd]
-    #lines = [[curs_pad, flag, food] for flag, food in wnd]
     lines[idx][0] = curs
 
     lines_flat = [' '.join(fields) for fields in lines]
@@ -101,76 +100,80 @@ def print_screen(wnd, idx, cursor, wnd_max):
 def interactive_mark(marked_foods, food_cache, not_food_cache):
     """ Present interactive marking ui for the given foods. """
 
-    idx, max_idx = 0, -1
-    behind, ahead = 2, 11
-    while True:
+    try:
+        idx, max_idx = 0, -1
+        behind, ahead = 2, 11
+        while True:
 
-        wnd_s = max(idx - behind, 0)
-        wnd_e = idx + ahead + 1
-        wnd_idx = min(idx, behind)
-        wnd = marked_foods[wnd_s:wnd_e]
+            wnd_s = max(idx - behind, 0)
+            wnd_e = idx + ahead + 1
+            wnd_idx = min(idx, behind)
+            wnd = marked_foods[wnd_s:wnd_e]
 
-        clear_screen()
-        print_screen(wnd, wnd_idx, behind, behind + ahead + 1)
-        print ""
-        print u"Press \u2191 to go back"
-        print u"      \u2190, \u2192 to select NOT_FOOD, FOOD"
-        print u"      \u2193 to skip current already marked"
-        print u"      \u2423 (spacebar) to skip all already marked"
+            clear_screen()
+            print_screen(wnd, wnd_idx, behind, behind + ahead + 1)
+            print ""
+            print u"Press \u2191 to go back"
+            print u"      \u2190, \u2192 to select NOT_FOOD, FOOD"
+            print u"      \u2193 to skip current already marked"
+            print u"      \u2423 (spacebar) to skip all already marked"
 
-        current_mark, current_food = marked_foods[idx]
+            current_mark, current_food = marked_foods[idx]
 
-        # See if we've never been here before.
-        if idx > max_idx and cached(current_mark):
-            # Wait a tick then mark food for the user.
-            sleep(ALREADY_RELEVANT_DELAY)
-            if FOOD_CACHED == current_mark:
-                chin = ACTION_MAP[FOOD]
+            # See if we've never been here before.
+            if idx > max_idx and cached(current_mark):
+                # Wait a tick then mark food for the user.
+                sleep(ALREADY_RELEVANT_DELAY)
+                if FOOD_CACHED == current_mark:
+                    chin = ACTION_MAP[FOOD]
+                else:
+                    chin = ACTION_MAP[NOT_FOOD]
             else:
-                chin = ACTION_MAP[NOT_FOOD]
-        else:
-            chin = getch()
-            if 27 == ord(chin):
-                chin = chin + getch() + getch()
+                chin = getch()
+                if 27 == ord(chin):
+                    chin = chin + getch() + getch()
 
-        max_idx = max(max_idx, idx)
+            max_idx = max(max_idx, idx)
 
 
-        if ACTION_MAP[FOOD] == chin:
-            marked_foods[idx] = (FOOD, current_food)
-            idx += 1
-            food_cache.add(current_food)
-            try:
-                not_food_cache.remove(current_food)
-            except KeyError:
-                pass
-
-        elif ACTION_MAP[NOT_FOOD] == chin:
-            marked_foods[idx] = (NOT_FOOD, current_food)
-            idx += 1
-            not_food_cache.add(current_food)
-            try:
-                food_cache.remove(current_food)
-            except KeyError:
-                pass
-
-        elif UP == chin:
-            idx = max(0, idx - 1)
-
-        elif DOWN == chin:
-            if len(marked_foods) > idx + 1 and current_mark != UNMARKED:
+            if ACTION_MAP[FOOD] == chin:
+                marked_foods[idx] = (FOOD, current_food)
                 idx += 1
+                food_cache.add(current_food)
+                try:
+                    not_food_cache.remove(current_food)
+                except KeyError:
+                    pass
 
-        elif SPACE == chin:
-            while current_mark != UNMARKED and idx < len(marked_foods):
+            elif ACTION_MAP[NOT_FOOD] == chin:
+                marked_foods[idx] = (NOT_FOOD, current_food)
                 idx += 1
-                current_mark = marked_foods[idx][0]
+                not_food_cache.add(current_food)
+                try:
+                    food_cache.remove(current_food)
+                except KeyError:
+                    pass
 
-        elif CTRL_C == chin:
-            return False
+            elif UP == chin:
+                idx = max(0, idx - 1)
 
-        if idx >= len(marked_foods):
-            return True
+            elif DOWN == chin:
+                if len(marked_foods) > idx + 1 and current_mark != UNMARKED:
+                    idx += 1
+
+            elif SPACE == chin:
+                while current_mark != UNMARKED and idx < len(marked_foods):
+                    idx += 1
+                    current_mark = marked_foods[idx][0]
+
+            elif CTRL_C == chin:
+                return False
+
+            if idx >= len(marked_foods):
+                return True
+
+    except KeyboardInterrupt:
+        return False
 
 
 def main():
@@ -184,6 +187,8 @@ def main():
 
     parser.add_argument('-c', '--conf-dir', help="path to configuration data",
                         type=str, default=default_conf_dir)
+
+    parser.add_argument('-s', '--save-path', help="path to save precision data")
 
     parser.add_argument('file_paths', help="paths to input files",
                         nargs='+')
@@ -238,10 +243,16 @@ def main():
 
         precision_results[food_counts_path] = precision
 
+    # Output precision.
     print ""
-
     for path, precision in precision_results.iteritems():
         print "Precision for file {} is {}".format(path, precision)
+
+    # Save to file when requested.
+    if args.save_path is not None:
+        with open(args.save_path, 'w') as output_file:
+            json.dump(precision_results, output_file)
+
 
     # Commit relevant foods.
     json.dump([list(food_cache), list(not_food_cache)],
