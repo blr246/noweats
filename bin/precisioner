@@ -4,6 +4,7 @@ Mark food items and test system precision.
 """
 from argparse import ArgumentParser
 from time import sleep
+from random import shuffle
 
 import os
 import json
@@ -218,30 +219,45 @@ def main():
 
     precision_results = dict()
 
-    # Open food file.
+    # Open food files to get terms to label.
+    marked_foods = set()
     for food_counts_path in args.file_paths:
 
         food_counts = json.load(open(food_counts_path, 'r'))
+        marked_foods.update(
+            (pre_mark_food(food), food) for food in food_counts.iterkeys())
 
+    # See if we need to mark foods.
+    num_to_mark = sum(1 for mark, _ in marked_foods if UNMARKED == mark)
+    if num_to_mark > 0:
+        marked_foods = list(marked_foods)
+        shuffle(marked_foods)
+        interactive_mark(marked_foods, food_cache, not_food_cache)
 
-        marked_foods = [(pre_mark_food(food), food) for food in food_counts.iterkeys()]
-        num_to_mark = sum(1 for mark, _ in marked_foods if UNMARKED == mark)
-
-        if num_to_mark > 0:
-            marked = interactive_mark(marked_foods, food_cache, not_food_cache)
-            if not marked:
-                break
+    def mark_reducer((unmarked, food, not_food), item):
+        """ Sort foods into food, not_food, and unmarked lists. """
+        if item in food_cache:
+            food.append(item)
+        elif item in not_food_cache:
+            not_food.append(item)
         else:
-            marked_foods = [(FOOD if mark is FOOD_CACHED else NOT_FOOD, food)
-                            for mark, food in marked_foods]
+            unmarked.append(item)
+        return (unmarked, food, not_food)
 
-        # Sum correct.
-        correct = sum(food_counts[food]
-                    for mark, food in marked_foods if mark == FOOD)
-        num_response = sum(food_counts.itervalues())
-        precision = float(correct) / num_response
+    # Compute precision for all files that are marked completely.
+    for food_counts_path in args.file_paths:
 
-        precision_results[food_counts_path] = precision
+
+        food_counts = json.load(open(food_counts_path, 'r'))
+        unmarked, foods, _ = reduce(mark_reducer, food_counts.iterkeys(), ([], [], []))
+
+        if len(unmarked) == 0:
+
+            # Compute precision.
+            correct = sum(food_counts[food] for food in foods)
+            num_response = sum(food_counts.itervalues())
+            precision = float(correct) / num_response
+            precision_results[food_counts_path] = precision
 
     # Output precision.
     print ""
