@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """ Setup and install noweats.  """
 
-from setuptools import find_packages, setup
+from distutils.core import setup
+from setuptools import find_packages
 
 setup(name='NowEats',
       version='1.0',
@@ -10,11 +11,11 @@ setup(name='NowEats',
       author_email='blr246@nyu.edu',
       url='https://github.com/blr246/noweats',
       packages=find_packages(),
-      install_requires=['unidecode', 'tweepy', 'numpy', 'nltk'],
       scripts=[
           'bin/collect_nyc',
           'bin/process_file',
           'bin/process_new',
           'bin/recompress_data',
+          'bin/link_numpy',
       ],
       )

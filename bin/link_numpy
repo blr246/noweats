@@ -1,0 +1,66 @@
+#!/bin/bash
+# This script links the system numpy to the tox pypy environment site-packages.
+# This script is necessary to overcome the non-standard numpy required within
+# the pypy env.
+#
+# N.B. this script must be run after the `tox` command completes.
+
+if ! which pypy >/dev/null 2>&1
+then
+    echo PyPy not installed 1>&2
+    exit 1
+fi
+
+# Get the system PyPy path.
+sys_lib_pypy=`pypy -c 'import sys; print sys.real_prefix'`
+if [[ -z "${sys_lib_pypy}" ]]
+then
+    echo Error: must run in a virtualenv 1>&2
+    exit 1
+fi
+sys_pypy=`echo "${sys_lib_pypy}" | sed 's/lib/bin/'`
+
+script_dir=`dirname $0`
+
+# Get dir for pypy tox env.
+pushd "${script_dir}/.." >/dev/null
+if [ ! -d ".tox" ]
+then
+    echo Could not find .tox dir in `pwd` 1>&2
+    exit 1
+fi
+cd .tox
+tox_dir=`pwd`
+if [ ! -d "pypy" ]
+then
+    echo Could not find pypy env in `pwd` 1>&2
+    exit 1
+fi
+pypy_env_dir="${tox_dir}/pypy"
+popd >/dev/null
+
+pypy_numpy_dir="`python -c 'import sys; print sys.prefix'`/site-packages/numpy"
+if [[ -d "${pypy_numpy_dir}" ]]
+then
+    exit 0
+fi
+
+list_site_packages=`cat <<EOF
+import site
+from os.path import join
+print "\n".join(join(p, "numpy") for p in site.getsitepackages())
+EOF`
+
+# Eager exit finding the link to make.
+for numpy_path in `${sys_pypy} -c "${list_site_packages}"`
+do
+    if [ -d "${numpy_path}" ]
+    then
+        echo "Linking ${numpy_path} -> ${pypy_numpy_dir}"
+        ln -s "${numpy_path}" "${pypy_numpy_dir}"
+        exit 0
+    fi
+done
+
+echo Error: failed to link numpy in pypy tox env 1>&2
+exit 1
