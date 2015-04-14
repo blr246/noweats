@@ -46,15 +46,13 @@ _HTMLPARSER = HTMLParser()
 _RE_FOOD_POS = re.compile('^N.*|^JJ')
 
 _TEXT_FIELD = '"text":'
-_RE_LANG_EN = re.compile('"lang":"en"')
-_RE_TWEET_NOT = re.compile('|'.join((
+_LANG_EN_PREFIX = '"lang":"en'
+_RE_CHECK_TWEET = re.compile('|'.join([
     '"retweeted_status":',  # is a retweet
-    '"text":"RT',   # is a retweet by text
-    '"lang":"(?!en)',   # is non-English
-)))
-
-_FILTER_TWEET = lambda datas: _RE_LANG_EN.search(datas) is not None \
-    and _RE_TWEET_NOT.search(datas) is None
+    '{}"RT'.format(_TEXT_FIELD),  # is a retweet by text
+    '"lang":"[^"]+"',  # get lang
+    _TEXT_FIELD,  # get text field start
+]))
 
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
 
@@ -69,6 +67,26 @@ def _build_noun_chunker():
     return RegexpParser(np_grammar)
 
 _CHUNKER = _build_noun_chunker()
+
+
+def extract_tweet_en_not_rt(raw_json):
+    """ Extract tweets that are English and not a retweet. """
+    matched = False
+    text_starts = []
+    for match in _RE_CHECK_TWEET.finditer(raw_json):
+        if match.group() == _TEXT_FIELD:
+            text_starts.append(match.end())
+        elif match.group().startswith(_LANG_EN_PREFIX):
+            matched = True
+        else:
+            matched = False
+            break
+    # Return longest text field (since hashtags also are text).
+    if matched and len(text_starts) > 0:
+        return max((extract_tweet_text(raw_json, text_start)
+                    for text_start in text_starts), key=len)
+    else:
+        return None
 
 
 def extract_tweet_text(raw_json, text_start=None):
@@ -93,19 +111,22 @@ def extract_tweet_text(raw_json, text_start=None):
     return unidecode(_HTMLPARSER.unescape(json.loads(raw_json[text_start:text_end + 1])))
 
 
-def read_json(data_path):
-    """ Read json tweet data ignoring retweets.  """
+def read_tweets_en_not_rt(data_path):
+    """ Read tweet from compressed file ignoring retweets and non-English tweets. """
     with bz2.BZ2File(data_path, 'rb') as data_file:
-        for line in its.ifilter(_FILTER_TWEET, data_file):
-            yield line
+        for tweet in its.ifilter(lambda tweet: tweet is not None,
+                                 its.imap(extract_tweet_en_not_rt, data_file)):
+            yield tweet
+        #for raw_json in its.ifilter(raw_tweet_en_not_rt, data_file):
+        #    yield raw_json
 
 
-def sentence_split_clean_data(raw_jsons, eat_lexicon):
+def sentence_split_clean_data(tweets, eat_lexicon):
     """
     Remove hyperlinks and unprintable tokens from tweets and split them into
     sentences.
 
-    :param list raw_jsons: list of raw json source data
+    :param iterable tweets: iterable of tweet text strings
     :param list eat_lexicon: list of eat words
     :return list: list of tuples of sentences split from tweets where each
     sentence contains at least one word from the eat lexicon
@@ -123,8 +144,7 @@ def sentence_split_clean_data(raw_jsons, eat_lexicon):
                for sentence in raw_sentences
                if eat_lexicon_re.search(sentence) is not None
                )
-         for raw_sentences in its.imap(raw_to_sentences,
-                                       its.imap(extract_tweet_text, raw_jsons))
+         for raw_sentences in its.imap(raw_to_sentences, tweets)
          )
         if len(sentences) > 0
     ]
