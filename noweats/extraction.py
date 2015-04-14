@@ -45,6 +45,7 @@ _HTMLPARSER = HTMLParser()
 
 _RE_FOOD_POS = re.compile('^N.*|^JJ')
 
+_TEXT_FIELD = '"text":'
 _RE_LANG_EN = re.compile('"lang":"en"')
 _RE_TWEET_NOT = re.compile('|'.join((
     '"retweeted_status":',  # is a retweet
@@ -56,8 +57,6 @@ _FILTER_TWEET = lambda datas: _RE_LANG_EN.search(datas) is not None \
     and _RE_TWEET_NOT.search(datas) is None
 
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
-
-_GET_TEXT = lambda data: unidecode(_HTMLPARSER.unescape(data['text']))
 
 _STOPWORDS_EN = set(stopwords.words('english'))
 
@@ -72,19 +71,40 @@ def _build_noun_chunker():
 _CHUNKER = _build_noun_chunker()
 
 
+def extract_tweet_text(raw_json, text_start=None):
+    """ Use simple text scanning to extract text. """
+    if not text_start:
+        text_start = raw_json.find(_TEXT_FIELD) + 7
+    text_end = text_start
+    while True:
+        text_end += 1
+        text_end = raw_json.find('"', text_end)
+        if raw_json[text_end - 1] != '\\':
+            break
+        else:
+            # Count slashes. When even, this is actually a quote.
+            slashes = 1
+            while True:
+                if raw_json[text_end - slashes - 1] != '\\':
+                    break
+                slashes += 1
+            if not slashes & 1:
+                break
+    return unidecode(_HTMLPARSER.unescape(json.loads(raw_json[text_start:text_end + 1])))
+
+
 def read_json(data_path):
     """ Read json tweet data ignoring retweets.  """
     with bz2.BZ2File(data_path, 'rb') as data_file:
-        return [json.loads(line)
-                for line in data_file if _FILTER_TWEET(line)]
+        return [line for line in data_file if _FILTER_TWEET(line)]
 
 
-def sentence_split_clean_data(data_json, eat_lexicon):
+def sentence_split_clean_data(raw_jsons, eat_lexicon):
     """
     Remove hyperlinks and unprintable tokens from tweets and split them into
     sentences.
 
-    :param list data_json: list of json source data
+    :param list raw_jsons: list of raw json source data
     :param list eat_lexicon: list of eat words
     :return list: list of tuples of sentences split from tweets where each
     sentence contains at least one word from the eat lexicon
@@ -99,7 +119,7 @@ def sentence_split_clean_data(data_json, eat_lexicon):
                for sentence in _RE_SENTENCE.split(_RE_PREPROC.sub('', text))
                if eat_lexicon_re.search(sentence) is not None
                )
-         for text in its.imap(_GET_TEXT, data_json)
+         for text in its.imap(extract_tweet_text, raw_jsons)
          )
         if len(sentences) > 0
     ]
