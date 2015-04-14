@@ -13,7 +13,7 @@ import json
 import itertools as its
 import bz2
 
-_REMOVE_LINKS = '\\s?\\bhttp[\S]+'
+_REMOVE_LINKS = '\\s?\\bhttps?://[\S]+'
 
 _REMOVE_MISSED_UNICODE = '\[\?\]'
 
@@ -45,11 +45,11 @@ _HTMLPARSER = HTMLParser()
 
 _RE_FOOD_POS = re.compile('^N.*|^JJ')
 
-_RE_LANG_EN = re.compile('"lang"\\s*:\\s*"en"')
+_RE_LANG_EN = re.compile('"lang":"en"')
 _RE_TWEET_NOT = re.compile('|'.join((
-    '"retweeted_status"\\s*:',  # is a retweet
-    '"text"\\s*:\\s*"\\s*RT',   # is a retweet by text
-    '"lang"\\s*:\\s*"(?!en)',   # is non-English
+    '"retweeted_status":',  # is a retweet
+    '"text":"RT',   # is a retweet by text
+    '"lang":"(?!en)',   # is non-English
 )))
 
 _FILTER_TWEET = lambda datas: _RE_LANG_EN.search(datas) is not None \
