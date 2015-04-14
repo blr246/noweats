@@ -96,7 +96,8 @@ def extract_tweet_text(raw_json, text_start=None):
 def read_json(data_path):
     """ Read json tweet data ignoring retweets.  """
     with bz2.BZ2File(data_path, 'rb') as data_file:
-        return [line for line in data_file if _FILTER_TWEET(line)]
+        for line in its.ifilter(_FILTER_TWEET, data_file):
+            yield line
 
 
 def sentence_split_clean_data(raw_jsons, eat_lexicon):
@@ -112,14 +113,18 @@ def sentence_split_clean_data(raw_jsons, eat_lexicon):
     # Note that test for eat_lexicon guarantees that the sentence will have
     # nonzero length.
     eat_lexicon_re = re.compile('|'.join(eat_lexicon), re.IGNORECASE)
+    raw_to_sentences = lambda tweet: \
+        _RE_SENTENCE.split(_RE_PREPROC.sub('', tweet))
+    clean_sentence = lambda sentence: \
+        _RE_FIX_WHITESPACE.sub(' ', _RE_REMOVE_CHARS.sub(' ', sentence)).strip()
     return [
         sentences for sentences in
-        (tuple(_RE_FIX_WHITESPACE
-               .sub(' ', _RE_REMOVE_CHARS.sub(' ', sentence)).strip()
-               for sentence in _RE_SENTENCE.split(_RE_PREPROC.sub('', text))
+        (tuple(clean_sentence(sentence)
+               for sentence in raw_sentences
                if eat_lexicon_re.search(sentence) is not None
                )
-         for text in its.imap(extract_tweet_text, raw_jsons)
+         for raw_sentences in its.imap(raw_to_sentences,
+                                       its.imap(extract_tweet_text, raw_jsons))
          )
         if len(sentences) > 0
     ]
