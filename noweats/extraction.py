@@ -193,7 +193,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
         elif state == _STATE_EAT_LAST:
 
             # We must have a noun phrase after our eat word.
-            if not isinstance(stree, Tree) or stree.node != 'NP':
+            if not isinstance(stree, Tree) or stree.label() != 'NP':
                 state = _STATE_SCAN_EAT
 
             else:
@@ -228,7 +228,7 @@ def parse_food_phrase(tree, eat_lexicon, filters, debug=False):
 
         elif state == _STATE_IN_FOUND:
 
-            if not isinstance(stree, Tree) or stree.node != 'NP':
+            if not isinstance(stree, Tree) or stree.label() != 'NP':
                 words.pop()
                 filtered_words.pop()
 
