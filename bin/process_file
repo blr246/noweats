@@ -86,6 +86,9 @@ def main():
     parser.add_argument('-o', '--output-dir', help="path to output data dir",
                         type=str, required=True)
 
+    parser.add_argument('-p', '--profile', help="profile this script",
+                        action='store_true')
+
     parser.add_argument('file_paths', help="paths to input files",
                         nargs='+')
 
@@ -103,10 +106,21 @@ def main():
     else:
         filters = filters_from_dict(json.load(open(filters_path, 'r')))
 
-    # Process files.
-    process_files(args.file_paths, args.output_dir,
-                  _EAT_LEXICON, filters,
-                  _MERGE_TOP_K, _NUM_INTERESTING)
+    try:
+        if args.profile:
+            import statprof
+            statprof.start()
+
+        # Process files.
+        process_files(args.file_paths, args.output_dir,
+                      _EAT_LEXICON, filters,
+                      _MERGE_TOP_K, _NUM_INTERESTING)
+    finally:
+        if args.profile:
+            statprof.stop()
+            statprof.display()
+            statprof.reset()
+
 
 
 if __name__ == '__main__':
