@@ -1,6 +1,7 @@
 """
 Extract foods that people are eating from their Tweets.
 """
+from collections import defaultdict
 from nltk.chunk import RegexpParser
 from nltk.corpus import stopwords
 from nltk import word_tokenize, pos_tag, Tree
@@ -156,8 +157,13 @@ def remove_dups(tweets, keep_thresh=1):
                                                for s in tw
                                                for w in s.split())
                                    if w not in _STOPWORDS_EN))
-    hashes = counter(hash_tw(tw) for tw in tweets)
-    return [tw for tw in tweets if hashes[hash_tw(tw)] <= keep_thresh]
+    hash_to_tweets = defaultdict(list)
+    for tw in tweets:
+        hash_to_tweets[hash_tw(tw)].append(tw)
+    return (tw
+            for hash_tweets in hash_to_tweets.itervalues()
+            for tw in hash_tweets
+            if len(hash_tweets) <= keep_thresh)
 
 
 def score_tweet_en(tweet, en_model):
