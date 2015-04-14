@@ -1,7 +1,7 @@
 """
 Analysis of raw counts extracted from tweets.
 """
-from collections import Counter, defaultdict
+from collections import defaultdict
 from nltk.metrics import edit_distance
 import itertools as it
 import math
@@ -30,12 +30,14 @@ def merge_most_common_counts(counts, num_to_get=None,
     # all other keys and merge sets based on threshold. Use key from the
     # largest subgroup of the merge.
 
+    items = counts.items()
+    items.sort(reverse=True, key=lambda (_, count): count)
     filtered_keys = [key.lower()
-                     for key, _ in counts.most_common()
+                     for key, _ in items
                      if len(key) >= len_range[0] and len(key) <= len_range[1]]
 
     merged = [None] * len(filtered_keys)
-    merged_counts = Counter()
+    merged_counts = defaultdict(int)
 
     for i, ikey in enumerate(filtered_keys):
 
@@ -123,8 +125,8 @@ def find_interesting(counts, num_to_find,
             term_frequencies[term] += count
 
     num_docs = float(len(counts))
-    idf = dict((term, math.log(num_docs / freq))
-               for term, freq in term_frequencies.iteritems())
+    idf = {term: math.log(num_docs / freq)
+           for term, freq in term_frequencies.iteritems()}
 
     most_interesting = sorted(
         food_terms,

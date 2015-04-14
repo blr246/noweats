@@ -3,8 +3,8 @@ Model of English language.
 """
 from noweats.extraction import allowed_chars_no_whitespace, \
     sentence_split_clean_data
+from noweats.util import counter
 from nltk import word_tokenize
-from collections import Counter
 
 import math
 import itertools as its
@@ -18,7 +18,7 @@ def word_to_bag(word):
 def make_en_prefix_suffix_model(model):
     """ Create a function that scores English words. """
 
-    log_tform = lambda m: dict((k, math.log(v)) for k, v in m.iteritems())
+    log_tform = lambda m: {k: math.log(v) for k, v in m.iteritems()}
 
     prefixes, suffixes, bags = model
     prefixes = log_tform(prefixes)
@@ -139,8 +139,8 @@ def build_en_prefix_suffix_model(data_json):
     toks = [t.lower() for tw in all_tweets
             for s in tw
             for t in word_tokenize(s)]
-    prefixes = Counter(t[:3] for t in toks)
-    suffixes = Counter(t[-3:] for t in toks)
-    bags = Counter(word_to_bag(t) for t in toks)
+    prefixes = counter(t[:3] for t in toks)
+    suffixes = counter(t[-3:] for t in toks)
+    bags = counter(word_to_bag(t) for t in toks)
 
     return [prefixes, suffixes, bags]

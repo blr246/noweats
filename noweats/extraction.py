@@ -4,9 +4,9 @@ Extract foods that people are eating from their Tweets.
 from nltk.chunk import RegexpParser
 from nltk.corpus import stopwords
 from nltk import word_tokenize, pos_tag, Tree
+from noweats.util import counter
 from unidecode import unidecode
 from HTMLParser import HTMLParser
-from collections import Counter
 
 import re
 import json
@@ -111,7 +111,7 @@ def remove_dups(tweets, keep_thresh=1):
                                                for s in tw
                                                for w in s.split())
                                    if w not in _STOPWORDS_EN))
-    hashes = Counter(hash_tw(tw) for tw in tweets)
+    hashes = counter(hash_tw(tw) for tw in tweets)
     return [tw for tw in tweets if hashes[hash_tw(tw)] <= keep_thresh]
 
 
@@ -277,7 +277,7 @@ def filters_from_dict(fdict):
 
 def count_foods(chunked_tweets, eat_lexicon, filters, debug=False):
     """ Count foods from pos tagged sentences using parse_food_phrase(). """
-    counts = Counter(parse_food_phrase(tree, eat_lexicon, filters, debug)
+    counts = counter(parse_food_phrase(tree, eat_lexicon, filters, debug)
                      for tweet in chunked_tweets
                      for tree in tweet)
     if None in counts:
