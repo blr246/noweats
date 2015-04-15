@@ -36,9 +36,9 @@ def process_files(file_paths, output_dir,
         try:
             filename = os.path.basename(path)
             tweets_gen = read_tweets_en_not_rt(path)
-            sentences = sentence_split_clean_data(tweets_gen, eat_lexicon)
-            sentences_no_dups = remove_dups(sentences)
-            tokenized = pool.map(tokenize_tweet, sentences_no_dups, 2000)
+            sentences_gen = sentence_split_clean_data(tweets_gen, eat_lexicon)
+            sentences_no_dups_gen = remove_dups(sentences_gen)
+            tokenized = pool.map(tokenize_tweet, sentences_no_dups_gen, 2000)
 
             # Process in parallel. These parts be slow.
             pos_tagged = pool.map(pos_tag_tweet, tokenized, 1000)

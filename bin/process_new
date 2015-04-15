@@ -40,7 +40,7 @@ fi
 echo Starting processing stage...
 
 while read -r file; do
-  if [ ! -f "${output_dir}/${file}.counts" ] || \
+  if [ ! -f "${output_dir}/${file}.counts" ] | \
      [ ! -f "${output_dir}/${file}.interesting" ]; then
     echo Processing file "${data_dir}/${file}"
     "${process}" -o "${output_dir}" "${data_dir}/${file}"

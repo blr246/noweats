@@ -139,7 +139,7 @@ def sentence_split_clean_data(tweets, eat_lexicon):
         _RE_SENTENCE.split(_RE_PREPROC.sub('', tweet))
     clean_sentence = lambda sentence: \
         _RE_FIX_WHITESPACE.sub(' ', _RE_REMOVE_CHARS.sub(' ', sentence)).strip()
-    return [
+    return (
         sentences for sentences in
         (tuple(clean_sentence(sentence)
                for sentence in raw_sentences
@@ -148,7 +148,7 @@ def sentence_split_clean_data(tweets, eat_lexicon):
          for raw_sentences in its.imap(raw_to_sentences, tweets)
          )
         if len(sentences) > 0
-    ]
+    )
 
 
 def remove_dups(tweets, keep_thresh=1):

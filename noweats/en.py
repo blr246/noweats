@@ -39,8 +39,7 @@ def make_en_prefix_suffix_model(model):
 
     num_chars = len(alphabet)
 
-    tuple_len = max(len(k) for k in its.chain(prefixes.iterkeys(),
-                                              suffixes.iterkeys()))
+    tuple_len = max(its.chain(prefixes.iterkeys(), suffixes.iterkeys()), key=len)
 
     # Tuples can lead or end with null chars but must have at least 1 non-null.
     possible_tuples = (num_chars + 1)**(tuple_len - 1) * num_chars
