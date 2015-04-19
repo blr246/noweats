@@ -2,11 +2,10 @@
 # Overcome the issues with Python's bz2 by decompressing and the compresssing
 # the data.
 
-#set -x
-
 # Collect absolute paths to binaries.
 
 mv='/bin/mv'
+cp='/bin/cp'
 find='/usr/bin/find'
 cat='/bin/cat'
 basename='/bin/basename'
@@ -76,9 +75,9 @@ for path in `${find} "${data_dir}" -type f -name '*.*'`; do
 
   else
     if [[ -z ${processed_files["${filename}"]} ]]; then
-      ${echo} "Re-compressing ${filename}"
+      ${echo} "Compressing ${filename}"
       tmp_filename="${data_dir}/${filename}.tmp"
-      ${bzip2} -cd "${data_dir}/${filename}" >"${tmp_filename}"
+      ${cp} "${data_dir}/${filename}" "${tmp_filename}"
       ${bzip2} -z "${tmp_filename}"
       ${mv} "${tmp_filename}.bz2" "${data_dir}/${filename}"
 

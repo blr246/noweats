@@ -69,8 +69,6 @@ class ApiKeys(object):
 class TimedRotatingStreamListener(StreamListener):
     """
     A Twitter stream listener that writes to compressed, timed rotating file.
-
-    N.B. Uses the logger encoding 'bz2' for compression of raw JSON.
     """
 
     def __init__(self, log_dir, prefix, when_interval=None):
@@ -109,7 +107,7 @@ class TimedRotatingStreamListener(StreamListener):
 
         # Create the logger.
         self._logger = TimedRotatingFileHandler(filename=log_path,
-                                                encoding='bz2_codec',
+                                                encoding='utf-8',
                                                 when=when,
                                                 interval=interval)
 
