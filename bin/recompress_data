@@ -71,7 +71,7 @@ for path in `${find} "${data_dir}" -type f -name '*.*'`; do
       || "${ext}" == "bz2"
       || "${ext}" == "tmp"
       || "${ext}" == "log" ]]; then
-    ${echo} "Skipping ${filename}"
+    ${echo} "Skipping ${filename}"
 
   else
     if [[ -z ${processed_files["${filename}"]} ]]; then
