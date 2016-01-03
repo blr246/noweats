@@ -2,9 +2,11 @@
 Extract foods that people are eating from their Tweets.
 """
 from collections import defaultdict
+from nltk import word_tokenize, Tree
 from nltk.chunk import RegexpParser
 from nltk.corpus import stopwords
-from nltk import word_tokenize, pos_tag, Tree
+from nltk.tag.perceptron import PerceptronTagger
+from nltk.tag import _pos_tag
 from noweats.util import counter
 from unidecode import unidecode
 from HTMLParser import HTMLParser
@@ -58,6 +60,8 @@ _RE_CHECK_TWEET = re.compile('|'.join([
 _FILTER_POS = lambda (_, pos): _RE_FOOD_POS.match(pos) is not None
 
 _STOPWORDS_EN = set(stopwords.words('english'))
+
+_TAGGER = PerceptronTagger()
 
 
 def _build_noun_chunker():
@@ -196,7 +200,7 @@ def tokenize_keep_en_tweets(tweets, en_model, keep_pct=0.95):
 
 def pos_tag_tweet(tweet):
     """ POS tag tweets split already into sentences. """
-    return tuple(pos_tag(sentence) for sentence in tweet)
+    return tuple(_pos_tag(sentence, None, _TAGGER) for sentence in tweet)
 
 
 def chunk_tweet(pos_tagged_tweet):
