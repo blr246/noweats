@@ -59,6 +59,8 @@ setup_venv() {
     pip install -r "${noweats_home}/requirements.txt" "${noweats_home}"
     "${bin_dir}/link_numpy"
     python -mnltk.downloader punkt
+    python -mnltk.downloader averaged_perceptron_tagger
+    python -mnltk.downloader stopwords
 }
 
 # Parse arguments and run requested mode.
