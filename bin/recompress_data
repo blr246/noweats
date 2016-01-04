@@ -25,10 +25,17 @@ grep='/bin/grep'
 sed='/bin/sed'
 bzip2=`first_file /bin/pbzip2 /usr/bin/pbzip2 /bin/bzip2 /usr/bin/bzip2`
 
+# Using /tmp on a system where /tmp is a ramdrive is beneficial.
+#
+# N.B. In the case when /tmp is a separate partition or device, it might be
+# better to copy files next to the source and then relink using `mv`. Of
+# course, this requires a filesystem that supports linking.
+tmp_dir=`mktemp -d "${TMPDIR:-/tmp}"/noweats.XXXX`
+
 # Remember files that we have converted.
 
 # On any signal, just quit.
-trap "exit 1" SIGINT SIGTERM SIGKILL ERR
+trap "rm -rf ${tmp_dir} && exit 1" SIGINT SIGTERM SIGKILL ERR
 
 usage() {
   script_name=`${basename} $0`
@@ -82,10 +89,10 @@ for path in `${find} "${data_dir}" -type f -name '*.*'`; do
   else
     if [[ -z ${processed_files["${filename}"]} ]]; then
       ${echo} "Compressing ${filename}"
-      tmp_filename="${data_dir}/${filename}.tmp"
-      ${cp} "${data_dir}/${filename}" "${tmp_filename}"
-      ${bzip2} -z "${tmp_filename}"
-      ${mv} "${tmp_filename}.bz2" "${data_dir}/${filename}"
+      tmp_path="${tmp_dir}/${filename}.tmp"
+      ${cp} "${data_dir}/${filename}" "${tmp_path}"
+      ${bzip2} -z "${tmp_path}"
+      ${mv} "${tmp_path}.bz2" "${data_dir}/${filename}"
 
       # Add processed record.
       ${echo} "${filename}" >> ${processed_log}
