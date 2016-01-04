@@ -2,6 +2,16 @@
 # Overcome the issues with Python's bz2 by decompressing and the compresssing
 # the data.
 
+# Find the first valid path in the input list.
+first_file() {
+    for path in $@; do
+        if [[ -f "${path}" ]]; then
+            echo "${path}"
+            break
+        fi
+    done
+}
+
 # Collect absolute paths to binaries.
 
 mv='/bin/mv'
@@ -13,11 +23,7 @@ echo='/bin/echo'
 touch='/bin/touch'
 grep='/bin/grep'
 sed='/bin/sed'
-
-bzip2='/bin/bzip2'
-if [ ! -f ${bzip2} ]; then
-  bzip2='/usr/bin/bzip2'
-fi
+bzip2=`first_file /bin/pbzip2 /usr/bin/pbzip2 /bin/bzip2 /usr/bin/bzip2`
 
 # Remember files that we have converted.
 
