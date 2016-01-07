@@ -36,7 +36,7 @@ To process files into their top food and interesting foods, run
 where `DATA_FILE` are paths to files output by the `collect_nyc` script.
 
 Note that due to known issues in the Python `bz2` library, all files must be
-recompressed using the `recompress_data` script.
+compressed using the `compress_data` script.
 
 All of the libraries supporting the scrips are also usable by importing them.
 See the code under the `noweats` package for more information.

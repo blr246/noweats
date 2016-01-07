@@ -23,12 +23,12 @@ script_dir=`dirname $0`
 data_dir="$1"; shift
 output_dir="$1"; shift
 
-recompress="${script_dir}/recompress_data"
+compress="${script_dir}/compress_data"
 process="${script_dir}/process_file"
 
-"${recompress}" "${data_dir}"
+"${compress}" "${data_dir}"
 
-echo Completed recompress stage...
+echo Completed compress stage...
 
 processed_log="${data_dir}/processed.log"
 

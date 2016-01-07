@@ -1,12 +1,12 @@
 #!/bin/bash
-# Overcome the issues with Python's bz2 by decompressing and the compresssing
-# the data.
+# Use bzip2 to compress the collected tweet data.
+
+data_prefix="ate_eating_eat_nyc"
 
 # Collect absolute paths to binaries.
 
 mv='/bin/mv'
 cp='/bin/cp'
-find='/usr/bin/find'
 cat='/bin/cat'
 basename='/bin/basename'
 echo='/bin/echo'
@@ -14,6 +14,9 @@ touch='/bin/touch'
 grep='/bin/grep'
 sed='/bin/sed'
 
+# N.B. Python bzip module is very sensitive to the version of bzip2 used to
+# compress files. Do not be tempted to use pbzip2 or anything else here other
+# than bzip2.
 bzip2='/bin/bzip2'
 if [ ! -f ${bzip2} ]; then
   bzip2='/usr/bin/bzip2'
@@ -26,17 +29,18 @@ fi
 # course, this requires a filesystem that supports linking.
 tmp_dir=`mktemp -d "${TMPDIR:-/tmp}"/noweats.XXXX`
 
-# Remember files that we have converted.
-
 # On any signal, just quit.
 trap "rm -rf ${tmp_dir} && exit 1" SIGINT SIGTERM SIGKILL ERR
 
 usage() {
-  script_name=`${basename} $0`
-  ${cat} <<EOF
+    script_name=`${basename} $0`
+    ${cat} <<EOF
 Usage: ${script_name} DATA_DIR
 
-  Uncompress and then compress all files in DATA_DIR using bzip2.
+  Compress all files in DATA_DIR using bzip2.
+
+  After compression, the file will be listed in DATA_DIR/processed_log. It will
+  not be compressed again.
 
   DATA_DIR    data file directory
 EOF
@@ -44,9 +48,9 @@ EOF
 
 # Check arguments.
 if [ $# -ne 1 ]; then
-  ${echo} Invalid arguments 1>&2
-  usage
-  exit 1
+    ${echo} Invalid arguments 1>&2
+    usage
+    exit 1
 fi
 
 data_dir=$1; shift
@@ -54,8 +58,8 @@ data_dir=$1; shift
 
 # Check that data directory is valid.
 if [ ! -d "${data_dir}" ]; then
-  ${echo} Invalid data dir: \"${data_dir}\" 2>&2
-  exit 1
+    ${echo} Invalid data dir: \"${data_dir}\" 2>&2
+    exit 1
 fi
 
 # Make sure processed log file exists.
@@ -69,36 +73,27 @@ while read -r file; do
 done <"${processed_log}"
 
 # Get list of files that have been rolled over (have a dot in them).
-for path in `${find} "${data_dir}" -type f -name '*.*'`; do
-  filename=`basename "${path}"`
-  ext="${filename##*.}"
+for path in "${data_dir}/${data_prefix}".*_[0-9][0-9]; do
+    filename=`basename "${path}"`
+    ext="${filename##*.}"
 
-  # Filter ignored filename types.
-  if [[ "${ext}" == ""
-      || "${ext}" == "bz2"
-      || "${ext}" == "tmp"
-      || "${ext}" == "log" ]]; then
-    ${echo} "Skipping ${filename}"
-
-  else
     if [[ -z ${processed_files["${filename}"]} ]]; then
-      ${echo} "Compressing ${filename}"
-      tmp_path="${tmp_dir}/${filename}.tmp"
-      ${cp} "${data_dir}/${filename}" "${tmp_path}"
-      ${bzip2} -z "${tmp_path}"
-      ${mv} "${tmp_path}.bz2" "${data_dir}/${filename}"
+        ${echo} "Compressing ${filename}"
+        tmp_path="${tmp_dir}/${filename}.tmp"
+        ${cp} "${data_dir}/${filename}" "${tmp_path}"
+        ${bzip2} -z "${tmp_path}"
+        ${mv} "${tmp_path}.bz2" "${data_dir}/${filename}"
 
-      # Add processed record.
-      ${echo} "${filename}" >> ${processed_log}
+        # Add processed record.
+        ${echo} "${filename}" >> ${processed_log}
     fi
 
     # Update file date stamp.
     date=`${echo} "${filename}" \
-      | ${sed} -e 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}_[0-9]\{2\}\).*/\1/' \
-               -e 's/_\([0-9]\{2\}\)$/ \1:00:00/'`
+        | ${sed} -e 's/.*\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}_[0-9]\{2\}\).*/\1/' \
+        -e 's/_\([0-9]\{2\}\)$/ \1:00:00/'`
     ${echo} "Resetting timestamp of ${filename} to ${date}"
     ${touch} -d "${date}" "${data_dir}/${filename}"
-  fi
 
 done
 
